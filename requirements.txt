@@ -9,6 +9,7 @@ Flask==3.1.2
 flask-cors==6.0.1
 Flask-Login==0.6.3
 frozendict==2.4.7
+gunicorn==23.0.0
 idna==3.11
 importlib_metadata==8.7.0
 itsdangerous==2.2.0
@@ -16,6 +17,7 @@ Jinja2==3.1.6
 MarkupSafe==3.0.3
 multitasking==0.0.12
 numpy==2.0.2
+packaging==25.0
 pandas==2.3.3
 peewee==3.18.3
 platformdirs==4.4.0
