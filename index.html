@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Junior Wall St.</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800&display=swap" rel="stylesheet">
+    
+    <style>
+        :root {
+            --bg-color: #0B0E11; --card-bg: #151A21; --card-border: #242D38; --text-main: #FFFFFF; --text-muted: #8F9EA8;
+            --accent-green: #00E396; --accent-red: #FF4560; --accent-blue: #008FFB; --accent-gold: #FEB019;
+            --gradient-blue: linear-gradient(135deg, #008FFB 0%, #0051ff 100%);
+        }
+
+        body { font-family: 'Inter', sans-serif; background-color: var(--bg-color); color: var(--text-main); margin: 0; padding: 40px 20px; -webkit-font-smoothing: antialiased; }
+        .hidden { display: none !important; }
+        .green { color: var(--accent-green); } .red { color: var(--accent-red); } .gold { color: var(--accent-gold); }
+        .container { max-width: 1200px; margin: 0 auto; }
+        .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 24px; margin-bottom: 24px; }
+        
+        .login-wrapper { height: 80vh; display: flex; align-items: center; justify-content: center; }
+        .login-box { width: 100%; max-width: 400px; padding: 40px; background: var(--card-bg); border: 1px solid var(--card-border); border-radius: 16px; text-align: center; }
+        
+        .card { background: var(--card-bg); padding: 24px; border-radius: 16px; border: 1px solid var(--card-border); }
+        .admin-card { border: 1px solid var(--accent-red); background: rgba(255, 69, 96, 0.05); }
+
+        h1 { font-weight: 800; font-size: 2.5rem; margin-bottom: 20px; background: -webkit-linear-gradient(0deg, #fff, #8F9EA8); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; }
+        h3 { margin: 0 0 15px 0; font-weight: 600; color: var(--text-muted); font-size: 0.9rem; text-transform: uppercase; letter-spacing: 1px; }
+        .balance { font-size: 2.5rem; font-weight: 700; margin-top: 5px; }
+        .subtext { font-size: 0.8rem; color: var(--text-muted); }
+
+        input { width: 100%; padding: 14px; margin-bottom: 12px; background: #0B0E11; border: 1px solid var(--card-border); border-radius: 8px; color: white; box-sizing: border-box; }
+        button { width: 100%; padding: 14px; border: none; border-radius: 8px; font-weight: 600; cursor: pointer; color: white; margin-top: 5px; }
+        
+        .btn-blue { background: var(--gradient-blue); } .btn-green { background: var(--accent-green); color: #000; } 
+        .btn-red { background: var(--accent-red); color: #fff; } .btn-dark { background: var(--card-border); color: var(--text-muted); width: auto; padding: 8px 16px; }
+
+        .nav { display: flex; gap: 10px; margin-bottom: 30px; overflow-x: auto; padding-bottom: 5px; }
+        .nav-btn { padding: 10px 24px; border-radius: 100px; background: var(--card-bg); color: var(--text-muted); border: 1px solid var(--card-border); cursor: pointer; white-space: nowrap; }
+        .nav-btn.active { background: var(--text-main); color: #000; border-color: white; }
+        .dad-zone { border-color: var(--accent-red); color: var(--accent-red); } .dad-zone.active { background: var(--accent-red); color: white; }
+
+        .table-container { overflow-x: auto; }
+        table { width: 100%; border-collapse: collapse; min-width: 500px; }
+        th { text-align: left; color: var(--text-muted); font-size: 0.75rem; text-transform: uppercase; padding: 12px; border-bottom: 1px solid var(--card-border); }
+        td { padding: 16px 12px; border-bottom: 1px solid rgba(255,255,255,0.03); }
+        
+        .research-category { margin-top: 30px; margin-bottom: 15px; color: var(--accent-blue); font-size: 1.1rem; font-weight: 600; }
+        .stock-item { display: flex; justify-content: space-between; align-items: center; padding: 16px; background: rgba(255,255,255,0.03); border-radius: 8px; margin-bottom: 8px; cursor: pointer; border: 1px solid transparent; transition: all 0.2s; }
+        .stock-item:hover { border-color: var(--accent-blue); background: rgba(0, 143, 251, 0.1); }
+        .stock-badge { background: var(--card-border); padding: 4px 8px; border-radius: 4px; font-size: 0.8rem; font-weight: 600; }
+        .link { color: var(--accent-blue); cursor: pointer; }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        
+        <!-- LOGIN / SIGNUP -->
+        <div id="login-page" class="login-wrapper">
+            <div class="login-box" id="login-form">
+                <div style="font-size: 3rem; margin-bottom: 10px;">🚀</div>
+                <h1>Junior Wall St.</h1>
+                <input type="text" id="l-username" placeholder="Username">
+                <input type="password" id="l-password" placeholder="Password">
+                <button class="btn-blue" onclick="login()">ENTER TERMINAL</button>
+                <p class="subtext" style="margin-top: 15px;">New Family? <span class="link" onclick="toggleAuth('signup')">Create Account</span></p>
+                <p id="login-msg" class="red" style="margin-top: 20px;"></p>
+            </div>
+
+            <div class="login-box hidden" id="signup-form">
+                <div style="font-size: 3rem; margin-bottom: 10px;">🏠</div>
+                <h1>Create Family</h1>
+                <input type="text" id="s-famname" placeholder="Family Name (e.g. The Smiths)">
+                <input type="text" id="s-username" placeholder="Admin Username (Dad)">
+                <input type="password" id="s-password" placeholder="Password">
+                <button class="btn-green" onclick="register()">CREATE ACCOUNT</button>
+                <p class="subtext" style="margin-top: 15px;">Have account? <span class="link" onclick="toggleAuth('login')">Login</span></p>
+                <p id="signup-msg" class="red" style="margin-top: 20px;"></p>
+            </div>
+        </div>
+
+        <!-- APP DASHBOARD -->
+        <div id="app-page" class="hidden">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px;">
+                <div><h2 id="welcome-msg" style="margin:0;">Hello!</h2><span class="subtext" id="last-updated">Connecting...</span></div>
+                <button class="btn-dark" onclick="logout()">LOGOUT</button>
+            </div>
+
+            <div class="nav">
+                <div class="nav-btn active" onclick="showTab('trade')" id="tab-trade">Portfolio</div>
+                <div class="nav-btn" onclick="showTab('research')" id="tab-research">Market Research</div>
+                <div class="nav-btn" onclick="showTab('leaderboard')" id="tab-leaderboard">Leaderboard</div>
+                <div class="nav-btn hidden dad-zone" onclick="showTab('admin')" id="tab-admin">Dad Zone</div>
+            </div>
+
+            <div id="view-trade">
+                <div class="grid">
+                    <div class="card"><h3>Net Worth</h3><div class="balance gold" id="net-worth-display">$---</div></div>
+                    <div class="card"><h3>Cash Balance</h3><div class="balance" id="cash-display">$---</div></div>
+                </div>
+                <div class="grid" style="grid-template-columns: 1fr 2fr;">
+                    <div class="card">
+                        <h3 style="color: var(--accent-blue);">Execute Trade</h3>
+                        <input type="text" id="ticker" placeholder="Ticker Symbol (e.g. AAPL)" style="text-transform: uppercase;">
+                        <input type="number" id="shares" placeholder="Quantity" value="1">
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 10px;">
+                            <button class="btn-green" onclick="trade('buy')">BUY</button>
+                            <button class="btn-red" onclick="trade('sell')">SELL</button>
+                        </div>
+                        <p id="trade-msg" class="subtext" style="text-align: center; margin-top: 15px;"></p>
+                    </div>
+                    <div class="card"><h3>Your Portfolio</h3><div class="table-container"><table id="portfolio-table"></table></div></div>
+                </div>
+            </div>
+
+            <div id="view-research" class="hidden"><div class="card" id="research-list"></div></div>
+
+            <div id="view-leaderboard" class="hidden">
+                <div class="card"><h3>🏆 Family Rankings</h3>
+                    <div class="table-container"><table id="leaderboard-table"><thead><tr><th>Rank</th><th>Trader</th><th>Net Worth</th><th>Cash</th></tr></thead><tbody id="lb-body"></tbody></table></div>
+                </div>
+            </div>
+
+            <div id="view-admin" class="hidden">
+                <div class="card admin-card">
+                    <h3 class="red">⚠️ Dad Controls</h3>
+                    <p class="subtext">Manage your family group.</p>
+                    <br>
+                    <h3 style="color: white; border-bottom: 1px solid #333; padding-bottom: 5px;">Add Family Member</h3>
+                    <div class="grid" style="gap: 10px; margin-top: 15px;">
+                        <input type="text" id="new-user-name" placeholder="New Username (e.g. Mom)">
+                        <input type="password" id="new-user-pass" placeholder="Password">
+                        <input type="number" id="new-user-cash" placeholder="Starting Cash" value="1000">
+                    </div>
+                    <button class="btn-green" onclick="createMember()">+ ADD MEMBER</button>
+                    
+                    <div style="margin: 40px 0; border-top: 1px solid rgba(255,69,96,0.3);"></div>
+                    <h3 class="red" style="border-bottom: 1px solid #333; padding-bottom: 5px;">Reset Competition</h3>
+                    <p class="subtext">Wipe everyone's stocks and reset cash.</p>
+                    <label class="subtext" style="display:block; margin-bottom:5px;">Everyone starts with:</label>
+                    <input type="number" id="reset-amount" value="10000" style="border-color: var(--accent-red);">
+                    <button class="btn-red" onclick="adminReset()">RESET ENTIRE GAME</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const API = 'http://127.0.0.1:5002/api';
+        const fmt = num => new Intl.NumberFormat('en-US', {style: 'currency', currency: 'USD'}).format(num || 0);
+
+        function toggleAuth(mode) {
+            document.getElementById('login-form').classList.toggle('hidden', mode === 'signup');
+            document.getElementById('signup-form').classList.toggle('hidden', mode === 'login');
+        }
+
+        async function login() {
+            const u = document.getElementById('l-username').value;
+            const p = document.getElementById('l-password').value;
+            try {
+                const res = await fetch(API + '/login', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({username: u, password: p}) });
+                handleAuth(res);
+            } catch(e) { document.getElementById('login-msg').innerText = "Server Error. Check console."; }
+        }
+
+        async function register() {
+            const f = document.getElementById('s-famname').value;
+            const u = document.getElementById('s-username').value;
+            const p = document.getElementById('s-password').value;
+            const res = await fetch(API + '/register_family', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({family_name: f, username: u, password: p}) });
+            const data = await res.json();
+            if(res.ok) { alert(data.message); toggleAuth('login'); } else { document.getElementById('signup-msg').innerText = data.error; }
+        }
+
+        async function handleAuth(res) {
+            const data = await res.json();
+            if(res.ok) {
+                document.getElementById('login-page').classList.add('hidden');
+                document.getElementById('app-page').classList.remove('hidden');
+                document.getElementById('welcome-msg').innerText = `Welcome, ${data.username}`;
+                if(data.is_admin) document.getElementById('tab-admin').classList.remove('hidden');
+                refreshAll(); setInterval(refreshAll, 15000);
+            } else { document.getElementById('login-msg').innerText = data.error; }
+        }
+
+        async function logout() { await fetch(API + '/logout'); location.reload(); }
+
+        async function createMember() {
+            const u = document.getElementById('new-user-name').value;
+            const p = document.getElementById('new-user-pass').value;
+            const c = document.getElementById('new-user-cash').value;
+            const res = await fetch(API + '/admin/create_user', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({username: u, password: p, cash: c}) });
+            const data = await res.json();
+            alert(data.message || data.error);
+        }
+
+        async function adminReset() {
+            const amount = document.getElementById('reset-amount').value;
+            if(!confirm(`ARE YOU SURE?\n\nThis will delete ALL stocks and set everyone's cash to $${amount}.`)) return;
+            const res = await fetch(API + '/admin/reset', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ reset_amount: amount }) });
+            const data = await res.json();
+            alert(data.message || data.error);
+            refreshAll();
+        }
+
+        function showTab(t) { ['trade', 'research', 'leaderboard', 'admin'].forEach(x => { document.getElementById('view-'+x).classList.add('hidden'); document.getElementById('tab-'+x).classList.remove('active'); }); document.getElementById('view-'+t).classList.remove('hidden'); document.getElementById('tab-'+t).classList.add('active'); }
+
+        async function refreshAll() {
+            const bRes = await fetch(API + '/balance'); const bData = await bRes.json();
+            document.getElementById('cash-display').innerText = fmt(bData.balance);
+            const pRes = await fetch(API + '/portfolio'); const pData = await pRes.json();
+            let html = `<thead><tr><th>Asset</th><th>Qty</th><th>Price</th><th>Value</th><th>Gain/Loss</th></tr></thead>`;
+            let stockVal = 0;
+            if(pData.length === 0) html += `<tr><td colspan="5" style="text-align:center; padding:20px; color:#888;">No stocks yet.</td></tr>`;
+            else pData.forEach(s => { stockVal += s.market_value; const color = s.profit >= 0 ? 'green' : 'red'; const sign = s.profit >= 0 ? '+' : ''; html += `<tr><td><span class="stock-badge">${s.ticker}</span></td><td>${s.shares}</td><td>${fmt(s.current_price)}</td><td>${fmt(s.market_value)}</td><td class="${color}">${sign}${fmt(s.profit)}</td></tr>`; });
+            document.getElementById('portfolio-table').innerHTML = html;
+            document.getElementById('net-worth-display').innerText = fmt(bData.balance + stockVal);
+            document.getElementById('last-updated').innerText = "Updated: " + new Date().toLocaleTimeString();
+            loadLeaderboard(); loadResearch();
+        }
+
+        async function trade(type) {
+            const t = document.getElementById('ticker').value; const s = document.getElementById('shares').value;
+            if(!t || !s) return alert("Enter ticker and quantity");
+            if(!confirm(`Confirm ${type} ${s} of ${t}?`)) return;
+            const msg = document.getElementById('trade-msg'); msg.innerText = "Processing..."; msg.className = "subtext gold";
+            const res = await fetch(API + '/' + type, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ticker: t, shares: s}) });
+            const data = await res.json();
+            msg.innerText = data.message || data.error; msg.className = data.error ? "subtext red" : "subtext green";
+            refreshAll();
+        }
+
+        async function loadLeaderboard() { const res = await fetch(API + '/leaderboard'); const data = await res.json(); let html = ''; data.forEach((u, i) => { const medal = i===0 ? '🥇' : i===1 ? '🥈' : i===2 ? '🥉' : `#${i+1}`; html += `<tr><td>${medal}</td><td>${u.username}</td><td class="gold"><b>${fmt(u.net_worth)}</b></td><td style="color:#888;">${fmt(u.cash)}</td></tr>`; }); document.getElementById('lb-body').innerHTML = html; }
+        
+        async function loadResearch() { 
+            const res = await fetch(API + '/research'); 
+            const data = await res.json(); 
+            let html = ''; 
+            
+            for(const [cat, items] of Object.entries(data)) { 
+                html += `<div class="research-category">${cat}</div>`; 
+                items.forEach(i => { 
+                    const chartUrl = `https://finance.yahoo.com/quote/${i.ticker}`;
+                    html += `
+                    <div class="stock-item">
+                        <div style="flex-grow:1;" onclick="fill('${i.ticker}')">
+                            <div style="font-weight:600; color:white;">${i.name}</div>
+                            <div style="font-size:12px; color:#8F9EA8;">${i.desc}</div>
+                        </div>
+                        <div style="display:flex; align-items:center; gap: 15px;">
+                            <a href="${chartUrl}" target="_blank" style="text-decoration:none; font-size: 1.2rem;" title="View Chart">📈</a>
+                            <div class="stock-badge" onclick="fill('${i.ticker}')">${i.ticker}</div>
+                        </div>
+                    </div>`; 
+                }); 
+            } 
+            document.getElementById('research-list').innerHTML = html; 
+        }
+
+        function fill(t) { 
+            document.getElementById('ticker').value = t; 
+            showTab('trade'); 
+            window.scrollTo({top: 0, behavior: 'smooth'});
+        }
+    </script>
+</body>
+</html>
