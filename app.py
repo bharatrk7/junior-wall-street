@@ -96,14 +96,19 @@ def register_family():
     cursor.execute(f'INSERT INTO families (id, name) VALUES ({ph}, {ph})', (new_fam_id, family_name))
     
     # 2. Create Admin
+    # FIX: Use Python Boolean (True) for Postgres, Integer (1) for SQLite
+    admin_val = True if IS_CLOUD else 1
+    
     hashed_pw = generate_password_hash(password, method='pbkdf2:sha256')
     try:
         cursor.execute(f'INSERT INTO users (family_id, username, password_hash, is_admin) VALUES ({ph}, {ph}, {ph}, {ph})', 
-                      (new_fam_id, username, hashed_pw, 1))
-    except Exception:
-        return jsonify({"error": "Username already taken"}), 400
+                      (new_fam_id, username, hashed_pw, admin_val))
+    except Exception as e:
+        # Debugging: Print the REAL error to the logs if it fails again
+        print(f"❌ Registration Error: {e}") 
+        return jsonify({"error": "Username taken or Database Error"}), 400
         
-    # Handling ID retrieval for different databases
+    # Get ID logic
     if IS_CLOUD:
         cursor.execute(f"SELECT id FROM users WHERE username = {ph}", (username,))
         user_id = cursor.fetchone()['id']
@@ -116,7 +121,7 @@ def register_family():
     conn.commit()
     conn.close()
     return jsonify({"message": "Family Created! Please Log In."})
-
+    
 @app.route('/api/logout')
 @login_required
 def logout():
