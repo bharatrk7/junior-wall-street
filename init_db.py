@@ -1,35 +1,62 @@
 import sqlite3
-from werkzeug.security import generate_password_hash
+import os
 import uuid
+import psycopg2
+from werkzeug.security import generate_password_hash
 
-connection = sqlite3.connect('trading.db')
+# --- CONFIGURATION ---
+IS_CLOUD = 'DATABASE_URL' in os.environ
+
+def get_db():
+    if IS_CLOUD:
+        return psycopg2.connect(os.environ['DATABASE_URL'])
+    else:
+        return sqlite3.connect('trading.db')
+
+def get_ph():
+    """Returns the correct placeholder: %s for Postgres, ? for SQLite"""
+    return '%s' if IS_CLOUD else '?'
+
+# --- CONNECT ---
+connection = get_db()
 cursor = connection.cursor()
+ph = get_ph()
+
+print(f"🔧 Initializing Database ({'Postgres' if IS_CLOUD else 'SQLite'})...")
+
+# --- DROP TABLES (Clean Slate) ---
+# We drop tables to ensure a clean setup on every run
+tables = ['stock_ideas', 'transactions', 'portfolio', 'account', 'users', 'families']
+for table in tables:
+    cursor.execute(f'DROP TABLE IF EXISTS {table} CASCADE' if IS_CLOUD else f'DROP TABLE IF EXISTS {table}')
+
+# --- CREATE TABLES ---
 
 # 1. FAMILIES
-cursor.execute('''
-    CREATE TABLE IF NOT EXISTS families (
+cursor.execute(f'''
+    CREATE TABLE families (
         id TEXT PRIMARY KEY,
         name TEXT NOT NULL
     )
 ''')
 
 # 2. USERS
-cursor.execute('''
-    CREATE TABLE IF NOT EXISTS users (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
+cursor.execute(f'''
+    CREATE TABLE users (
+        id {'SERIAL' if IS_CLOUD else 'INTEGER'} PRIMARY KEY,
         family_id TEXT NOT NULL,
         username TEXT NOT NULL,
         password_hash TEXT NOT NULL,
-        is_admin BOOLEAN DEFAULT 0,
+        is_admin {'BOOLEAN' if IS_CLOUD else 'INTEGER'} DEFAULT 0,
         FOREIGN KEY (family_id) REFERENCES families (id),
         UNIQUE(family_id, username)
     )
 ''')
 
 # 3. ACCOUNT
-cursor.execute('''
-    CREATE TABLE IF NOT EXISTS account (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
+cursor.execute(f'''
+    CREATE TABLE account (
+        id {'SERIAL' if IS_CLOUD else 'INTEGER'} PRIMARY KEY,
         user_id INTEGER NOT NULL,
         balance REAL NOT NULL,
         FOREIGN KEY (user_id) REFERENCES users (id)
@@ -37,9 +64,9 @@ cursor.execute('''
 ''')
 
 # 4. PORTFOLIO
-cursor.execute('''
-    CREATE TABLE IF NOT EXISTS portfolio (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
+cursor.execute(f'''
+    CREATE TABLE portfolio (
+        id {'SERIAL' if IS_CLOUD else 'INTEGER'} PRIMARY KEY,
         user_id INTEGER NOT NULL,
         ticker TEXT NOT NULL,
         shares INTEGER NOT NULL,
@@ -49,23 +76,23 @@ cursor.execute('''
 ''')
 
 # 5. TRANSACTIONS
-cursor.execute('''
-    CREATE TABLE IF NOT EXISTS transactions (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
+cursor.execute(f'''
+    CREATE TABLE transactions (
+        id {'SERIAL' if IS_CLOUD else 'INTEGER'} PRIMARY KEY,
         user_id INTEGER NOT NULL,
         type TEXT NOT NULL,
         ticker TEXT NOT NULL,
         shares INTEGER NOT NULL,
         price REAL NOT NULL,
-        timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
+        timestamp {'TIMESTAMP' if IS_CLOUD else 'DATETIME'} DEFAULT CURRENT_TIMESTAMP,
         FOREIGN KEY (user_id) REFERENCES users (id)
     )
 ''')
 
-# 6. STOCK IDEAS (The Research List)
-cursor.execute('''
-    CREATE TABLE IF NOT EXISTS stock_ideas (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
+# 6. STOCK IDEAS
+cursor.execute(f'''
+    CREATE TABLE stock_ideas (
+        id {'SERIAL' if IS_CLOUD else 'INTEGER'} PRIMARY KEY,
         category TEXT NOT NULL,
         ticker TEXT NOT NULL,
         name TEXT NOT NULL,
@@ -73,85 +100,67 @@ cursor.execute('''
     )
 ''')
 
-# --- EXPANDED SEED DATA (35+ Stocks) ---
+# --- SEED DATA ---
+
+# Stocks
 stock_list = [
-    # VIDEO GAMES
     ('Video Games', 'RBLX', 'Roblox', 'The platform where you build and play games.'),
     ('Video Games', 'NTDOY', 'Nintendo', 'Mario, Zelda, Pokemon, and the Switch.'),
     ('Video Games', 'EA', 'Electronic Arts', 'FIFA, Madden, and The Sims.'),
-    ('Video Games', 'TTWO', 'Take-Two', 'Grand Theft Auto and NBA 2K.'),
     ('Video Games', 'MSFT', 'Microsoft (Xbox)', 'Xbox, Minecraft, and Windows computers.'),
-    ('Video Games', 'SONY', 'Sony', 'PlayStation consoles and games.'),
-
-    # SOCIAL MEDIA & APPS
     ('Social Media', 'SNAP', 'Snapchat', 'Filters, streaks, and messaging.'),
-    ('Social Media', 'META', 'Meta', 'Instagram, Facebook, and WhatsApp.'),
-    ('Social Media', 'RDDT', 'Reddit', 'The front page of the internet.'),
-    ('Social Media', 'PINS', 'Pinterest', 'Ideas, styles, and mood boards.'),
-    ('Social Media', 'SPOT', 'Spotify', 'Music and podcast streaming.'),
-    ('Social Media', 'UBER', 'Uber', 'Rides and food delivery.'),
-
-    # FOOD & DRINK
     ('Snacks & Food', 'MCD', 'McDonalds', 'Big Macs, Fries, and Happy Meals.'),
-    ('Snacks & Food', 'DPZ', 'Domino\'s', 'Pizza delivery technology.'),
-    ('Snacks & Food', 'SBUX', 'Starbucks', 'Coffee, Cake Pops, and Frappuccinos.'),
     ('Snacks & Food', 'KO', 'Coca-Cola', 'Coke, Sprite, and Dasani Water.'),
-    ('Snacks & Food', 'PEP', 'PepsiCo', 'Pepsi, Gatorade, Doritos, and Cheetos.'),
-    ('Snacks & Food', 'YUM', 'Yum! Brands', 'Taco Bell, KFC, and Pizza Hut.'),
-    ('Snacks & Food', 'HSY', 'Hershey', 'Chocolate bars, Reese\'s, and Kisses.'),
-
-    # SHOPPING
-    ('Shopping', 'AMZN', 'Amazon', 'Fast delivery, Prime Video, and Alexa.'),
-    ('Shopping', 'WMT', 'Walmart', 'Superstores and grocery shopping.'),
-    ('Shopping', 'TGT', 'Target', 'The store with the red bullseye dog.'),
-    ('Shopping', 'COST', 'Costco', 'Huge warehouse stores and $1.50 hot dogs.'),
-    ('Shopping', 'EBAY', 'eBay', 'Buying and selling collectibles online.'),
-
-    # CLOTHES & SHOES
-    ('Fashion', 'NKE', 'Nike', 'Air Jordans, sneakers, and sports gear.'),
-    ('Fashion', 'CROX', 'Crocs', 'Foam clogs and Jibbitz charms.'),
-    ('Fashion', 'LULU', 'Lululemon', 'Yoga pants and athletic wear.'),
-    ('Fashion', 'SKX', 'Skechers', 'Comfortable shoes and sneakers.'),
-    ('Fashion', 'TJX', 'TJ Maxx', 'Discount clothing and home goods.'),
-
-    # ENTERTAINMENT
-    ('Entertainment', 'DIS', 'Disney', 'Marvel, Star Wars, Pixar, and Theme Parks.'),
-    ('Entertainment', 'NFLX', 'Netflix', 'Streaming movies and Stranger Things.'),
-    ('Entertainment', 'CNK', 'Cinemark', 'Movie theaters and popcorn.'),
-    ('Entertainment', 'CMCSA', 'Comcast/Universal', 'Minions, Mario Movie, and Universal Studios.'),
-
-    # TECH & CARS
-    ('Tech & Cars', 'AAPL', 'Apple', 'iPhones, iPads, and MacBooks.'),
-    ('Tech & Cars', 'GOOGL', 'Google', 'YouTube, Search, and Android.'),
-    ('Tech & Cars', 'TSLA', 'Tesla', 'Electric cars and rockets.'),
-    ('Tech & Cars', 'F', 'Ford', 'Mustangs and F-150 Trucks.'),
-    ('Tech & Cars', 'TM', 'Toyota', 'Camrys and Priuses.'),
+    ('Toys', 'MAT', 'Mattel', 'Barbie and Hot Wheels.'),
+    ('Toys', 'HAS', 'Hasbro', 'Nerf, Monopoly, and Transformers.'),
+    ('Tech', 'AAPL', 'Apple', 'iPhones, iPads, and MacBooks.'),
+    ('Tech', 'GOOGL', 'Google', 'YouTube, Search, and Android.'),
+    ('Tech', 'NFLX', 'Netflix', 'Streaming movies and Stranger Things.'),
+    ('Cars', 'TSLA', 'Tesla', 'Electric cars.'),
+    ('Clothes', 'NKE', 'Nike', 'Air Jordans, sneakers, and sports gear.'),
+    ('Entertainment', 'DIS', 'Disney', 'Marvel, Star Wars, Pixar, and Theme Parks.')
 ]
 
-# Wipe old list and add new one
-cursor.execute('DELETE FROM stock_ideas')
 for cat, tick, name, desc in stock_list:
-    cursor.execute('INSERT INTO stock_ideas (category, ticker, name, description) VALUES (?, ?, ?, ?)', 
+    cursor.execute(f'INSERT INTO stock_ideas (category, ticker, name, description) VALUES ({ph}, {ph}, {ph}, {ph})', 
                    (cat, tick, name, desc))
 
-# --- CREATE DEFAULT FAMILY (The Smiths) ---
+# Default Family (The Smiths)
 fam_id = str(uuid.uuid4())
-cursor.execute('INSERT INTO families (id, name) VALUES (?, ?)', (fam_id, "The Smith Family"))
+cursor.execute(f'INSERT INTO families (id, name) VALUES ({ph}, {ph})', (fam_id, "The Smiths"))
 
-# Admin (Dad)
+# Users
 dad_pw = generate_password_hash("password123", method='pbkdf2:sha256')
-cursor.execute('INSERT OR IGNORE INTO users (family_id, username, password_hash, is_admin) VALUES (?, ?, ?, ?)', 
-              (fam_id, 'Dad', dad_pw, 1))
-dad_id = cursor.execute('SELECT id FROM users WHERE username="Dad"').fetchone()[0]
-cursor.execute('INSERT OR IGNORE INTO account (user_id, balance) VALUES (?, ?)', (dad_id, 100000.00))
-
-# Kid (Kid1)
 kid_pw = generate_password_hash("1234", method='pbkdf2:sha256')
-cursor.execute('INSERT OR IGNORE INTO users (family_id, username, password_hash, is_admin) VALUES (?, ?, ?, ?)', 
-              (fam_id, 'Kid1', kid_pw, 0))
-kid_id = cursor.execute('SELECT id FROM users WHERE username="Kid1"').fetchone()[0]
-cursor.execute('INSERT OR IGNORE INTO account (user_id, balance) VALUES (?, ?)', (kid_id, 1000.00))
+
+# Helper to get ID
+def get_new_id(cursor):
+    return cursor.fetchone()[0] if IS_CLOUD else cursor.lastrowid
+
+# Create Dad
+if IS_CLOUD:
+    cursor.execute(f'INSERT INTO users (family_id, username, password_hash, is_admin) VALUES ({ph}, {ph}, {ph}, {ph}) RETURNING id', 
+                  (fam_id, 'Dad', dad_pw, 1))
+    dad_id = cursor.fetchone()[0]
+else:
+    cursor.execute(f'INSERT INTO users (family_id, username, password_hash, is_admin) VALUES ({ph}, {ph}, {ph}, {ph})', 
+                  (fam_id, 'Dad', dad_pw, 1))
+    dad_id = cursor.lastrowid
+
+cursor.execute(f'INSERT INTO account (user_id, balance) VALUES ({ph}, {ph})', (dad_id, 100000.00))
+
+# Create Kid
+if IS_CLOUD:
+    cursor.execute(f'INSERT INTO users (family_id, username, password_hash, is_admin) VALUES ({ph}, {ph}, {ph}, {ph}) RETURNING id', 
+                  (fam_id, 'Kid1', kid_pw, 0))
+    kid_id = cursor.fetchone()[0]
+else:
+    cursor.execute(f'INSERT INTO users (family_id, username, password_hash, is_admin) VALUES ({ph}, {ph}, {ph}, {ph})', 
+                  (fam_id, 'Kid1', kid_pw, 0))
+    kid_id = cursor.lastrowid
+
+cursor.execute(f'INSERT INTO account (user_id, balance) VALUES ({ph}, {ph})', (kid_id, 1000.00))
 
 connection.commit()
 connection.close()
-print("v6 Database Ready: 35+ Kids Stocks Loaded!")
+print("✅ Database Seeded Successfully!")
