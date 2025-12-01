@@ -132,41 +132,53 @@ for cat, tick, name, desc in stock_list:
 fam_id = str(uuid.uuid4())
 cursor.execute(f'INSERT INTO families (id, name) VALUES ({ph}, {ph})', (fam_id, "The Smiths"))
 
-# Users
-dad_pw = generate_password_hash("password123", method='pbkdf2:sha256')
-kid_pw = generate_password_hash("1234", method='pbkdf2:sha256')
+# --- DEFINE SEED USERS HERE (Easy to Reset) ---
+SEED_USERS = [
+    {
+        "username": "Dad",
+        "password": "password123",
+        "is_admin": True,
+        "cash": 100000.00
+    },
+    {
+        "username": "Kid1",
+        "password": "1234",
+        "is_admin": False,
+        "cash": 1000.00
+    },
+    {
+        "username": "The_Terminator", # Includes the Bot by default now!
+        "password": "password123",
+        "is_admin": False,
+        "cash": 1000000.00
+    }
+]
 
-# Helper to get ID
-def get_new_id(cursor):
-    return cursor.fetchone()[0] if IS_CLOUD else cursor.lastrowid
+print("🌱 Creating Users...")
 
-# Create Dad (Use Python True/1 for admin)
-admin_val = True if IS_CLOUD else 1
+for u in SEED_USERS:
+    # 1. Hash Password
+    hashed = generate_password_hash(u['password'], method='pbkdf2:sha256')
+    
+    # 2. Determine Admin flag based on DB type
+    if IS_CLOUD:
+        admin_val = u['is_admin'] # Postgres likes Python booleans
+    else:
+        admin_val = 1 if u['is_admin'] else 0 # SQLite likes integers
+        
+    # 3. Create User
+    if IS_CLOUD:
+        cursor.execute(f'INSERT INTO users (family_id, username, password_hash, is_admin) VALUES ({ph}, {ph}, {ph}, {ph}) RETURNING id', 
+                      (fam_id, u['username'], hashed, admin_val))
+        new_id = cursor.fetchone()[0]
+    else:
+        cursor.execute(f'INSERT INTO users (family_id, username, password_hash, is_admin) VALUES ({ph}, {ph}, {ph}, {ph})', 
+                      (fam_id, u['username'], hashed, admin_val))
+        new_id = cursor.lastrowid
 
-if IS_CLOUD:
-    cursor.execute(f'INSERT INTO users (family_id, username, password_hash, is_admin) VALUES ({ph}, {ph}, {ph}, {ph}) RETURNING id', 
-                  (fam_id, 'Dad', dad_pw, admin_val))
-    dad_id = cursor.fetchone()[0]
-else:
-    cursor.execute(f'INSERT INTO users (family_id, username, password_hash, is_admin) VALUES ({ph}, {ph}, {ph}, {ph})', 
-                  (fam_id, 'Dad', dad_pw, 1))
-    dad_id = cursor.lastrowid
-
-cursor.execute(f'INSERT INTO account (user_id, balance) VALUES ({ph}, {ph})', (dad_id, 100000.00))
-
-# Create Kid
-not_admin_val = False if IS_CLOUD else 0
-
-if IS_CLOUD:
-    cursor.execute(f'INSERT INTO users (family_id, username, password_hash, is_admin) VALUES ({ph}, {ph}, {ph}, {ph}) RETURNING id', 
-                  (fam_id, 'Kid1', kid_pw, not_admin_val))
-    kid_id = cursor.fetchone()[0]
-else:
-    cursor.execute(f'INSERT INTO users (family_id, username, password_hash, is_admin) VALUES ({ph}, {ph}, {ph}, {ph})', 
-                  (fam_id, 'Kid1', kid_pw, 0))
-    kid_id = cursor.lastrowid
-
-cursor.execute(f'INSERT INTO account (user_id, balance) VALUES ({ph}, {ph})', (kid_id, 1000.00))
+    # 4. Fund Account
+    cursor.execute(f'INSERT INTO account (user_id, balance) VALUES ({ph}, {ph})', (new_id, u['cash']))
+    print(f"   - Created {u['username']} (${u['cash']:,.0f})")
 
 connection.commit()
 connection.close()
