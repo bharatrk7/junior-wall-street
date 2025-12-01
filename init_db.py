@@ -41,13 +41,16 @@ cursor.execute(f'''
 ''')
 
 # 2. USERS
+# FIX: Postgres requires DEFAULT FALSE, SQLite requires DEFAULT 0
+default_admin_val = 'FALSE' if IS_CLOUD else '0'
+
 cursor.execute(f'''
     CREATE TABLE users (
         id {'SERIAL' if IS_CLOUD else 'INTEGER'} PRIMARY KEY,
         family_id TEXT NOT NULL,
         username TEXT NOT NULL,
         password_hash TEXT NOT NULL,
-        is_admin {'BOOLEAN' if IS_CLOUD else 'INTEGER'} DEFAULT 0,
+        is_admin {'BOOLEAN' if IS_CLOUD else 'INTEGER'} DEFAULT {default_admin_val},
         FOREIGN KEY (family_id) REFERENCES families (id),
         UNIQUE(family_id, username)
     )
@@ -137,10 +140,12 @@ kid_pw = generate_password_hash("1234", method='pbkdf2:sha256')
 def get_new_id(cursor):
     return cursor.fetchone()[0] if IS_CLOUD else cursor.lastrowid
 
-# Create Dad
+# Create Dad (Use Python True/1 for admin)
+admin_val = True if IS_CLOUD else 1
+
 if IS_CLOUD:
     cursor.execute(f'INSERT INTO users (family_id, username, password_hash, is_admin) VALUES ({ph}, {ph}, {ph}, {ph}) RETURNING id', 
-                  (fam_id, 'Dad', dad_pw, 1))
+                  (fam_id, 'Dad', dad_pw, admin_val))
     dad_id = cursor.fetchone()[0]
 else:
     cursor.execute(f'INSERT INTO users (family_id, username, password_hash, is_admin) VALUES ({ph}, {ph}, {ph}, {ph})', 
@@ -150,9 +155,11 @@ else:
 cursor.execute(f'INSERT INTO account (user_id, balance) VALUES ({ph}, {ph})', (dad_id, 100000.00))
 
 # Create Kid
+not_admin_val = False if IS_CLOUD else 0
+
 if IS_CLOUD:
     cursor.execute(f'INSERT INTO users (family_id, username, password_hash, is_admin) VALUES ({ph}, {ph}, {ph}, {ph}) RETURNING id', 
-                  (fam_id, 'Kid1', kid_pw, 0))
+                  (fam_id, 'Kid1', kid_pw, not_admin_val))
     kid_id = cursor.fetchone()[0]
 else:
     cursor.execute(f'INSERT INTO users (family_id, username, password_hash, is_admin) VALUES ({ph}, {ph}, {ph}, {ph})', 
