@@ -14,7 +14,6 @@ CORS(app)
 app.secret_key = 'saas_secret_key_change_me'
 
 # --- DATABASE CONFIGURATION ---
-# Check if we are on Cloud (Postgres) or Local (SQLite)
 IS_CLOUD = 'DATABASE_URL' in os.environ
 
 def get_db():
@@ -95,20 +94,18 @@ def register_family():
     new_fam_id = str(uuid.uuid4())
     cursor.execute(f'INSERT INTO families (id, name) VALUES ({ph}, {ph})', (new_fam_id, family_name))
     
-    # 2. Create Admin
-    # FIX: Use Python Boolean (True) for Postgres, Integer (1) for SQLite
+    # 2. Create Admin (Handles Postgres Boolean vs SQLite Integer)
     admin_val = True if IS_CLOUD else 1
-    
     hashed_pw = generate_password_hash(password, method='pbkdf2:sha256')
+    
     try:
         cursor.execute(f'INSERT INTO users (family_id, username, password_hash, is_admin) VALUES ({ph}, {ph}, {ph}, {ph})', 
                       (new_fam_id, username, hashed_pw, admin_val))
     except Exception as e:
-        # Debugging: Print the REAL error to the logs if it fails again
-        print(f"❌ Registration Error: {e}") 
-        return jsonify({"error": "Username taken or Database Error"}), 400
+        print(f"Register Error: {e}")
+        return jsonify({"error": "Username already taken"}), 400
         
-    # Get ID logic
+    # Get ID
     if IS_CLOUD:
         cursor.execute(f"SELECT id FROM users WHERE username = {ph}", (username,))
         user_id = cursor.fetchone()['id']
@@ -154,7 +151,7 @@ def get_portfolio():
     
     for row in rows:
         try:
-            # FIX: yfinance cache path for Render
+            # FIX: yfinance cache path for Render Read-Only System
             if IS_CLOUD: 
                 if not os.path.exists('/tmp/py-yfinance'): os.makedirs('/tmp/py-yfinance')
                 yf.set_tz_cache_location('/tmp/py-yfinance')
@@ -346,17 +343,15 @@ def create_family_member():
     cursor = conn.cursor()
     hashed_pw = generate_password_hash(new_password, method='pbkdf2:sha256')
     
-    # --- FIX STARTS HERE ---
-    # Postgres needs False (Bool), SQLite needs 0 (Int)
+    # FIX: Use False for Cloud, 0 for Local
     not_admin_val = False if IS_CLOUD else 0
     
     try:
         cursor.execute(f'INSERT INTO users (family_id, username, password_hash, is_admin) VALUES ({ph}, {ph}, {ph}, {ph})', 
                       (current_user.family_id, new_username, hashed_pw, not_admin_val))
     except Exception as e:
-        print(f"Error creating user: {e}") # This prints the REAL error to the logs
-        return jsonify({"error": "Username already taken or Database Error"}), 400
-    # --- FIX ENDS HERE ---
+        print(f"Error: {e}")
+        return jsonify({"error": "Username already taken"}), 400
         
     if IS_CLOUD:
         cursor.execute(f"SELECT id FROM users WHERE username = {ph}", (new_username,))
@@ -369,6 +364,43 @@ def create_family_member():
     conn.commit()
     conn.close()
     return jsonify({"message": f"Added {new_username} to your family!"})
+
+@app.route('/api/admin/delete_user', methods=['POST'])
+@login_required
+def delete_family_member():
+    if not current_user.is_admin: return jsonify({"error": "Admin Only!"}), 403
+    
+    data = request.get_json()
+    target_username = data.get('username')
+    
+    conn = get_db()
+    ph = get_ph()
+    cursor = conn.cursor()
+    
+    # Verify user is in YOUR family
+    cursor.execute(f'SELECT id FROM users WHERE username = {ph} AND family_id = {ph}', 
+                  (target_username, current_user.family_id))
+    user = cursor.fetchone()
+    
+    if not user:
+        conn.close()
+        return jsonify({"error": "User not found in your family"}), 404
+        
+    user_id = user['id']
+    
+    if user_id == current_user.id:
+        conn.close()
+        return jsonify({"error": "You cannot delete yourself!"}), 400
+
+    # Clean up
+    cursor.execute(f'DELETE FROM portfolio WHERE user_id = {ph}', (user_id,))
+    cursor.execute(f'DELETE FROM transactions WHERE user_id = {ph}', (user_id,))
+    cursor.execute(f'DELETE FROM account WHERE user_id = {ph}', (user_id,))
+    cursor.execute(f'DELETE FROM users WHERE id = {ph}', (user_id,))
+    
+    conn.commit()
+    conn.close()
+    return jsonify({"message": f"Deleted {target_username}."})
 
 @app.route('/api/admin/reset', methods=['POST'])
 @login_required
@@ -388,7 +420,6 @@ def admin_reset():
     
     id_list = ",".join(ids)
     
-    # Using format strings for the ID list (safe here because IDs come from DB)
     cursor.execute(f'UPDATE account SET balance = {ph} WHERE user_id IN ({id_list})', (start_amount,)) 
     cursor.execute(f'DELETE FROM portfolio WHERE user_id IN ({id_list})')
     cursor.execute(f'DELETE FROM transactions WHERE user_id IN ({id_list})')
