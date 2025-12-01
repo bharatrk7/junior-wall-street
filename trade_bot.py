@@ -12,8 +12,8 @@ API_URL = os.environ.get('API_URL', DEFAULT_URL)
 print(f"DEBUG: Configured API_URL is: {API_URL}")
 
 NEWS_API_KEY = os.environ.get('NEWS_API_KEY', "PASTE_YOUR_NEWSAPI_KEY_HERE")
-BOT_USERNAME = os.environ.get('BOT_USERNAME', "Terminator")
-BOT_PASSWORD = os.environ.get('BOT_PASSWORD', "password123")
+BOT_USERNAME = os.environ.get('BOT_USERNAME', "Kesavan_AI_Bot")
+BOT_PASSWORD = os.environ.get('BOT_PASSWORD', "67")
 
 HYPE_THRESHOLD = 0.2   
 PANIC_THRESHOLD = -0.2 
