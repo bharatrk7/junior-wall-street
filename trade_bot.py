@@ -4,13 +4,16 @@ import os
 from vaderSentiment.vaderSentiment import SentimentIntensityAnalyzer
 
 # --- CONFIGURATION ---
+# The Bot looks for the 'API_URL' environment variable. 
 DEFAULT_URL = "http://127.0.0.1:5002/api"
 API_URL = os.environ.get('API_URL', DEFAULT_URL)
-NEWS_API_KEY = os.environ.get('NEWS_API_KEY', "PASTE_YOUR_KEY_HERE")
 
-# NEW: Read Credentials from Environment (or default to Terminator)
-BOT_USERNAME = os.environ.get('BOT_USERNAME', "Kesavan_AI_Bot")
-BOT_PASSWORD = os.environ.get('BOT_PASSWORD', "67")
+# DEBUG: Print where we are trying to connect so we can see it in logs
+print(f"DEBUG: Configured API_URL is: {API_URL}")
+
+NEWS_API_KEY = os.environ.get('NEWS_API_KEY', "PASTE_YOUR_NEWSAPI_KEY_HERE")
+BOT_USERNAME = os.environ.get('BOT_USERNAME', "Terminator")
+BOT_PASSWORD = os.environ.get('BOT_PASSWORD', "password123")
 
 HYPE_THRESHOLD = 0.2   
 PANIC_THRESHOLD = -0.2 
@@ -41,7 +44,7 @@ def get_market_universe(session):
         for category, items in data.items():
             for item in items:
                 tickers.append(item['ticker'])
-        print(f"✅ Monitoring {len(tickers)} stocks...")
+        print(f"✅ Monitoring {len(tickers)} stocks: {tickers[:3]}...")
         return tickers
     except:
         return []
@@ -66,27 +69,31 @@ def check_news_sentiment(ticker):
         return 0
 
 def execute_strategy(session, ticker, sentiment):
-    bal_res = session.get(f"{API_URL}/balance")
-    if bal_res.status_code != 200: return
-    cash = bal_res.json()['balance']
-    
-    quote_res = session.get(f"{API_URL}/quote?ticker={ticker}")
-    if quote_res.status_code != 200: return
-    price = quote_res.json()['price']
-    
-    if sentiment > HYPE_THRESHOLD:
-        budget = cash * MAX_SPEND_PCT
-        shares_to_buy = int(budget // price)
-        if shares_to_buy > 0:
-            print(f"   🚀 POSITIVE ({sentiment:.2f})! Buying {shares_to_buy} shares...")
-            res = session.post(f"{API_URL}/buy", json={"ticker": ticker, "shares": shares_to_buy})
-            if res.status_code == 200: print(f"   ✅ EXECUTED BUY.")
-            else: print(f"   ❌ FAILED: {res.text}")
-    
-    elif sentiment < PANIC_THRESHOLD:
-        print(f"   📉 NEGATIVE ({sentiment:.2f})! Selling...")
-        res = session.post(f"{API_URL}/sell", json={"ticker": ticker, "shares": 5})
-        if res.status_code == 200: print(f"   ✅ EXECUTED SELL.")
+    try:
+        bal_res = session.get(f"{API_URL}/balance")
+        if bal_res.status_code != 200: return
+        cash = bal_res.json()['balance']
+        
+        quote_res = session.get(f"{API_URL}/quote?ticker={ticker}")
+        if quote_res.status_code != 200: return
+        price = quote_res.json()['price']
+        
+        if sentiment > HYPE_THRESHOLD:
+            budget = cash * MAX_SPEND_PCT
+            shares_to_buy = int(budget // price)
+            if shares_to_buy > 0:
+                print(f"   🚀 POSITIVE ({sentiment:.2f})! Buying {shares_to_buy} shares...")
+                res = session.post(f"{API_URL}/buy", json={"ticker": ticker, "shares": shares_to_buy})
+                if res.status_code == 200: print(f"   ✅ EXECUTED BUY.")
+                else: print(f"   ❌ FAILED: {res.text}")
+        
+        elif sentiment < PANIC_THRESHOLD:
+            print(f"   📉 NEGATIVE ({sentiment:.2f})! Selling...")
+            res = session.post(f"{API_URL}/sell", json={"ticker": ticker, "shares": 5})
+            if res.status_code == 200: print(f"   ✅ EXECUTED SELL.")
+            
+    except Exception as e:
+        print(f"Trade Error: {e}")
 
 if __name__ == "__main__":
     while True:
@@ -97,7 +104,7 @@ if __name__ == "__main__":
             for ticker in tickers:
                 sentiment = check_news_sentiment(ticker)
                 if abs(sentiment) > 0.05: execute_strategy(session, ticker, sentiment)
-                time.sleep(5) 
+                time.sleep(5)
             print("--- Resting... ---")
             time.sleep(600)
         else:
