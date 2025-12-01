@@ -90,11 +90,10 @@ def register_family():
     conn = get_db()
     cursor = conn.cursor()
     
-    # 1. Create Family
     new_fam_id = str(uuid.uuid4())
     cursor.execute(f'INSERT INTO families (id, name) VALUES ({ph}, {ph})', (new_fam_id, family_name))
     
-    # 2. Create Admin (Handles Postgres Boolean vs SQLite Integer)
+    # FIX: Postgres needs Boolean True, SQLite needs Integer 1
     admin_val = True if IS_CLOUD else 1
     hashed_pw = generate_password_hash(password, method='pbkdf2:sha256')
     
@@ -105,14 +104,12 @@ def register_family():
         print(f"Register Error: {e}")
         return jsonify({"error": "Username already taken"}), 400
         
-    # Get ID
     if IS_CLOUD:
         cursor.execute(f"SELECT id FROM users WHERE username = {ph}", (username,))
         user_id = cursor.fetchone()['id']
     else:
         user_id = cursor.lastrowid
 
-    # 3. Fund Account
     cursor.execute(f'INSERT INTO account (user_id, balance) VALUES ({ph}, {ph})', (user_id, 100000.00))
     
     conn.commit()
@@ -125,7 +122,7 @@ def logout():
     logout_user()
     return jsonify({"message": "Logged out"})
 
-# --- CORE DATA ROUTES ---
+# --- DATA ROUTES ---
 
 @app.route('/api/balance')
 @login_required
@@ -213,8 +210,9 @@ def buy():
     else:
         cursor.execute(f'INSERT INTO portfolio (user_id, ticker, shares, avg_price) VALUES ({ph}, {ph}, {ph}, {ph})', 
                        (current_user.id, ticker, shares, price))
-                       
-    cursor.execute(f'INSERT INTO transactions (user_id, type, ticker, shares, price) VALUES ({ph}, "BUY", {ph}, {ph}, {ph})',
+    
+    # FIX: Use SINGLE QUOTES for Postgres ('BUY')
+    cursor.execute(f"INSERT INTO transactions (user_id, type, ticker, shares, price) VALUES ({ph}, 'BUY', {ph}, {ph}, {ph})",
                    (current_user.id, ticker, shares, price))
     
     conn.commit()
@@ -252,7 +250,8 @@ def sell():
     else:
         cursor.execute(f'UPDATE portfolio SET shares = shares - {ph} WHERE id = {ph}', (shares, holding['id']))
         
-    cursor.execute(f'INSERT INTO transactions (user_id, type, ticker, shares, price) VALUES ({ph}, "SELL", {ph}, {ph}, {ph})',
+    # FIX: Use SINGLE QUOTES for Postgres ('SELL')
+    cursor.execute(f"INSERT INTO transactions (user_id, type, ticker, shares, price) VALUES ({ph}, 'SELL', {ph}, {ph}, {ph})",
                    (current_user.id, ticker, shares, price))
                    
     conn.commit()
@@ -349,8 +348,7 @@ def create_family_member():
     try:
         cursor.execute(f'INSERT INTO users (family_id, username, password_hash, is_admin) VALUES ({ph}, {ph}, {ph}, {ph})', 
                       (current_user.family_id, new_username, hashed_pw, not_admin_val))
-    except Exception as e:
-        print(f"Error: {e}")
+    except Exception:
         return jsonify({"error": "Username already taken"}), 400
         
     if IS_CLOUD:
